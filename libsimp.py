@@ -1,15 +1,6 @@
 #!/bin/env python3
 # -*- coding: utf-8 -*-
 
-'''
-Note: This is not fully tested...
-
-Requires a newish version of Python3 (Tested with 3.9)
-
-Install Dependencies:
-pip3 install ftd2xx
-
-'''
 
 from time import sleep
 
