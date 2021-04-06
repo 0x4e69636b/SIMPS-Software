@@ -154,6 +154,8 @@ class SIMPSDevice(object):
                 device_details = ftd2xx.getDeviceInfoDetail(index, update=False)
                 if (device_details['description'] == b'SIMPS Device'):
                     devices.append(device_details)
+                elif (device_details['description'] == b'SIMPS ATE'):
+                    devices.append(device_details)
             except ftd2xx.ftd2xx.DeviceError:
                 pass
         return devices
