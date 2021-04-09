@@ -30,10 +30,14 @@ MODE_PROGRAM = 'programming'
 MODE_INACTIVE = 'inactive'
 MODE_ACTIVE = 'active'
 MODE_TABLE = {
+    b'\x00': MODE_RESET,
     b'\x01': MODE_RESET,
-    b'\x02': MODE_PROGRAM,
-    b'\x03': MODE_INACTIVE,
-    b'\x04': MODE_ACTIVE
+    b'\x02': MODE_RESET,
+    b'\x03': MODE_PROGRAM,
+    b'\x04': MODE_PROGRAM,
+    b'\x05': MODE_PROGRAM,
+    b'\x06': MODE_INACTIVE,
+    b'\x07': MODE_ACTIVE
 }
 
 # Power supply definitions.
