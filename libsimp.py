@@ -10,18 +10,18 @@ from ftd2xx.defines import *
 
 # Device operation code definitions.
 OP_RESERVED = b'\x00'
-OP_ECHO = b'\x01'
+OP_ECHO = b'\x10'
 OP_ECHO_ALT = b'\x80'
-OP_PROGRAM = b'\x02'
-OP_DISABLE_PS = b'\x03'
-OP_ENABLE_PS = b'\x04'
-OP_TRIGGER_MEASUREMENT = b'\x05'
-OP_SET_RANGE = b'\x06'
-OP_GET_RANGE = b'\x0b'
-OP_DISABLE_FG = b'\x07'
-OP_ENABLE_FG = b'\x08'
-OP_GET_MODE = b'\x09'
-OP_SET_PS = b'\x0a'
+OP_PROGRAM = b'\x20'
+OP_DISABLE_PS = b'\x30'
+OP_ENABLE_PS = b'\x40'
+OP_TRIGGER_MEASUREMENT = b'\x50'
+OP_SET_RANGE = b'\x60'
+OP_GET_RANGE = b'\xb0'
+OP_DISABLE_FG = b'\x70'
+OP_ENABLE_FG = b'\xc0'
+OP_GET_MODE = b'\x90'
+OP_SET_PS = b'\xa0'
 
 # Device mode definitions.
 MODE_UNKNOWN = 'unknown'
@@ -31,13 +31,13 @@ MODE_INACTIVE = 'inactive'
 MODE_ACTIVE = 'active'
 MODE_TABLE = {
     b'\x00': MODE_RESET,
-    b'\x01': MODE_RESET,
-    b'\x02': MODE_RESET,
-    b'\x03': MODE_PROGRAM,
-    b'\x04': MODE_PROGRAM,
-    b'\x05': MODE_PROGRAM,
-    b'\x06': MODE_INACTIVE,
-    b'\x07': MODE_ACTIVE
+    b'\x10': MODE_RESET,
+    b'\x20': MODE_RESET,
+    b'\x30': MODE_PROGRAM,
+    b'\x40': MODE_PROGRAM,
+    b'\x50': MODE_PROGRAM,
+    b'\x60': MODE_INACTIVE,
+    b'\x70': MODE_ACTIVE
 }
 
 # Power supply definitions.
@@ -55,9 +55,9 @@ MEASUREMENT_PERIODS = 3
 DUT_MEASUREMENT_VREF = 1
 DUT_MEASUREMENT_RANGE_MULTIPLIERS = [1.1, 2.7, 5.5, 16.6] # Ranges 1, 2, 3, 4 respectively.
 DUT_MEASUREMENT_RANGE_TABLE = {
-    1: b'\x03', # Inverted in order for binary to match pin outputs.
-    2: b'\x02',
-    3: b'\x01',
+    1: b'\x30', # Inverted in order for binary to match pin outputs.
+    2: b'\x20',
+    3: b'\x10',
     4: b'\x00'
 }
 FG_MEASURMENT_VREF = 2.5
@@ -201,10 +201,10 @@ class SIMPSDevice(object):
         # This function will be used to test and validate the interface.
         print('----- Detecting wiring errors')
         self.device.purge(PURGE_RX + PURGE_TX)
-        self.device.write(b'\x01\xaa')
+        self.device.write(b'\x10\xaa')
         a = self._try_read(1, timeout=2)
         self.device.purge(PURGE_RX + PURGE_TX)
-        self.device.write(b'\x01\x55')
+        self.device.write(b'\x10\x55')
         b = self._try_read(1, timeout=2)
         
         if ((a == None) or (b == None)):
@@ -262,11 +262,11 @@ class SIMPSDevice(object):
         print('\tpurging buffers')
         self.device.purge(PURGE_RX + PURGE_TX)
         print('\techoing 05')
-        self.device.write(b'\x01\x05')
+        self.device.write(b'\x10\x50')
         print('\twaiting for data')
         bytes = self._try_read(1, timeout=1)
         print(bytes)
-        if (bytes == b'\x05'): print('SUCCESS')
+        if (bytes == b'\x50'): print('SUCCESS')
         else:
             print('FAILURE')
             exit()
@@ -276,14 +276,14 @@ class SIMPSDevice(object):
         print('\tpurging buffers')
         self.device.purge(PURGE_RX + PURGE_TX)
         print('\techo without data leading to a lockup condition')
-        self.device.write(b'\x01')
+        self.device.write(b'\x10')
         print('\twaiting for FPGA timeout period to be over')
         sleep(0.5)
         print('\tstarting a new echo with data of 6')
-        self.device.write(b'\x01\x06')
+        self.device.write(b'\x10\x60')
         bytes = self._try_read(1, timeout=1)
         print(bytes)
-        if (bytes == b'\x06'): print('SUCCESS')
+        if (bytes == b'\x60'): print('SUCCESS')
         else:
             print('FAILURE')
             exit()
@@ -297,9 +297,7 @@ class SIMPSDevice(object):
         
         # Check for the proper mode?
         
-        # Op-code for programming.
-        data = OP_PROGRAM
-        
+        data = b''
         data += voltage_to_bytes(ps_voltage, POWERSUPPLY_VREF, 12)
         data += integer_to_bytes(frequency, 24)
         for waveform_value in waveform_table:
@@ -307,7 +305,7 @@ class SIMPSDevice(object):
         data += self.range_byte(_range)
         
         # Send the assembled set of programming bytes.
-        self.device.write(data)
+        self.device.write(OP_PROGRAM + split_bytes(data))
     
     def get_mode(self):
         # Purge buffers
@@ -320,8 +318,9 @@ class SIMPSDevice(object):
         response = self._try_read(bytes=1, timeout=1)
         
         try:
-            return MODE_TABLE[response]
+            return MODE_TABLE[cancel_ls_four_bits(response)]
         except:
+            raise
             return MODE_UNKNOWN
     
     def set_ps(self, ps_voltage):
@@ -329,7 +328,7 @@ class SIMPSDevice(object):
         assert (ps_voltage >= POWERSUPPLY_MIN) and (ps_voltage <= POWERSUPPLY_MAX)
         
         data = OP_SET_PS
-        data += voltage_to_bytes(ps_voltage, POWERSUPPLY_VREF, 12)
+        data += fix_ps_bytes(voltage_to_bytes(ps_voltage, POWERSUPPLY_VREF, 12))
         
         self.device.write(data)
     
@@ -361,7 +360,7 @@ class SIMPSDevice(object):
         assert (range_byte != None)
         
         inv_mapping = {v: k for k, v in DUT_MEASUREMENT_RANGE_TABLE.items()}
-        _range = inv_mapping[range_byte]
+        _range = inv_mapping[cancel_ls_four_bits(range_byte)]
         
         assert (_range > 0) and (_range < 5)
         self.range = _range
@@ -391,8 +390,8 @@ class SIMPSDevice(object):
         self.device.write(OP_TRIGGER_MEASUREMENT)
         
         # Get all the data back...
-        length = 2*2*MEASUREMENT_SAMPLES*MEASUREMENT_PERIODS + 2
-        response = self._try_read(length, timeout=5)
+        length = (2*2*MEASUREMENT_SAMPLES*MEASUREMENT_PERIODS + 2) * 2
+        response = combine_bytes(self._try_read(length, timeout=5))
         
         assert (response != None)
         
@@ -455,6 +454,60 @@ def integer_to_bytes(i, n=12, signed=False):
 def bytes_to_integer(b, n=12, signed=False):
     # Should cap the output to the number of bits... perhaps later.
     return int.from_bytes(b, byteorder='big', signed=signed)
+
+# Functions to hack those bits inorder to get around that 3rd dataline being dead...
+def fix_ps_bytes(bytes):
+    # Make 0000.1111.1111.1111 into 1111.1000.1111.1011
+    # The 3rd bit of each byte is passed by.
+    msByte = bytes[0]
+    lsByte = bytes[1]
+    ms_bits = list(bin(msByte).lstrip('0b').zfill(8))
+    ls_bits = list(bin(lsByte).lstrip('0b').zfill(8))
+    #print(''.join(ms_bits))
+    #print(''.join(ls_bits))
+    ms_new = ''.join(ms_bits[4:] + [ls_bits[0]] + ['0', '0', '0']) # <- Fix
+    ls_new = ''.join(ls_bits[1:6] + ['0'] + ls_bits[6:])
+    #print(ms_new)
+    #print(ls_new)
+    new_bytes = b''
+    new_bytes += int.to_bytes(int(ms_new, 2), length=1, byteorder='big', signed=False)
+    new_bytes += int.to_bytes(int(ls_new, 2), length=1, byteorder='big', signed=False)
+    #print(new_bytes)
+    #exit()
+    return new_bytes
+
+def cancel_ls_four_bits(byte):
+    # Make 1111xxxx into 11110000
+    bits = list(bin(int.from_bytes(byte, byteorder='big')).lstrip('0b').zfill(8))
+    new_byte = int.to_bytes(int(''.join(bits[:4] + ['0', '0', '0', '0']), 2), length=1, byteorder='big', signed=False)
+    return new_byte
+
+def split_bytes(bytes):
+    # Split each byte into msb and lsb parts of 4-bits each.
+    # Send msb parts first followed by lsb parts.
+    msb_parts = b''
+    lsb_parts = b''
+    
+    for byte in bytes:
+        bits = list(bin(byte).lstrip('0b').zfill(8))
+        msb_parts += int.to_bytes(int(''.join(bits[:4] + ['0', '0', '0', '0']), 2), length=1, byteorder='big', signed=False)
+        lsb_parts += int.to_bytes(int(''.join(bits[4:] + ['0', '0', '0', '0']), 2), length=1, byteorder='big', signed=False)
+    
+    new_bytes = msb_parts + lsb_parts
+    
+    return new_bytes
+
+def combine_bytes(bytes):
+    length = len(bytes)
+    # We need an even number of bytes for this operation.
+    assert ((length % 2) == 0)
+    actual_length = int(length / 2)
+    
+    new_bytes = b''
+    for i in range(actual_length):
+        new_bytes += int.to_bytes(int(''.join(list(bin(bytes[i]).lstrip('0b').zfill(8))[:4] + list(bin(bytes[i+actual_length]).lstrip('0b').zfill(8))[:4]), 2), length=1, byteorder='big', signed=False)
+    
+    return new_bytes
 
 # If this is executed as a script.
 if (__name__ == '__main__'):
