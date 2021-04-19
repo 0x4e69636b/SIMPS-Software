@@ -298,7 +298,8 @@ class SIMPSDevice(object):
         # Check for the proper mode?
         
         data = b''
-        data += voltage_to_bytes(ps_voltage, POWERSUPPLY_VREF, 10)
+        #data += voltage_to_bytes(ps_voltage, POWERSUPPLY_VREF, 10)
+        data += integer_to_bytes(int(ps_voltage), 10)
         data += integer_to_bytes(frequency, 24)
         for waveform_value in waveform_table:
             data += voltage_to_bytes(waveform_value, WAVEFORM_VREF, 12, True)
@@ -328,7 +329,8 @@ class SIMPSDevice(object):
         assert (ps_voltage >= POWERSUPPLY_MIN) and (ps_voltage <= POWERSUPPLY_MAX)
         
         data = OP_SET_PS
-        data += fix_ps_bytes(voltage_to_bytes(ps_voltage, POWERSUPPLY_VREF, 10))
+        #data += fix_ps_bytes(voltage_to_bytes(ps_voltage, POWERSUPPLY_VREF, 10))
+        data += fix_ps_bytes(integer_to_bytes(int(ps_voltage), 10))
         
         self.device.write(data)
     
