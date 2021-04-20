@@ -65,8 +65,11 @@ FG_MEASURMENT_VREF = 2.5
 
 class SIMPS(object):
     # Wrapper around SIMPSDevice to be able to use the 'with' style.
+    def __init__(self, connect_timeout=None):
+        self.connect_timeout = connect_timeout
+        
     def __enter__(self):
-        self.device = SIMPSDevice()
+        self.device = SIMPSDevice(self.connect_timeout)
         self.device.connect()
         return self.device
     
@@ -129,7 +132,7 @@ class SIMPSDevice(object):
                     # There is not connection timeout, so re-raise the exception.
                     raise
                 else:
-                    if (self.connect_timeout >= time):
+                    if (time >= self.connect_timeout):
                         # Re-raise the exception if we are over the allowed waiting time.
                         raise
                     else:
