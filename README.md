@@ -11,7 +11,8 @@ Note: The LabVIEW software is dependent on the python library for the SIMPS devi
 2. Install with the command, `pip3 install ftd2xx`
 
 ## LabVIEW Installation
-1. Follow the instructions provided here: https://myapps.asu.edu/app/labview
+* Follow the instructions provided here: https://myapps.asu.edu/app/labview
+* Run `SIMPS 2.5.vi`
 
 ## Running the Command Line Interface
 Using Command Prompt (you no longer need to be an administrator), cd to the directory where you have downloaded/cloned the python files for the interface.
